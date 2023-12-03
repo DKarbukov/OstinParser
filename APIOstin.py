@@ -9,7 +9,7 @@ from transformers import BertTokenizerFast
 login = vk_api.VkApi(token=MY_TOKEN)
 ostin_id = -20367999
 
-#testing
+
 def get_group_posts(group_id, count):
     offset = 0
     posts_with_comments = {}
