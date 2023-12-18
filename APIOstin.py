@@ -75,6 +75,10 @@ def get_comments(group_id, posts):
                                                                 'Лайки': '',
                                                                 'Ответы': '',
                                                                 'Дата': ''}
+    for key, comment in clean_comments.items():
+        text = comment['Комментарий']
+        sentiment = predict(text)
+        clean_comments[key]['Sentiment'] = sentiment if sentiment else 'Not analyzed'   
     print(f'Starting to retrieve {len(names_ids)} names')
     names = login.method("users.get", {"user_ids": str(names_ids)[1:-1], "fields": "city, country, sex", "name_case": "nom"})
     SEX = {1: 'Female', 2: 'Male'}
