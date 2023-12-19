@@ -12,17 +12,18 @@ ostin_id = -20367999
 
 def get_group_posts(group_id, count):
     offset = 0
-    posts_with_comments = {}
+    posts_with_comments, all_posts = {}, {}
     while offset < count:
         if count > 100: count_lim = 100
         else: count_lim = count
         posts = login.method("wall.get", {"owner_id": group_id, "count": count_lim, "offset": offset})
         offset += count_lim
         for i in posts['items']:
+            all_posts[len(all_posts)+1] = {'ID': i['id'], 'Date': datetime.datetime.utcfromtimestamp(i['date']).strftime('%Y/%m/%d'), 'Comments': i['comments']['count'], 'Likes': i['likes']['count'], 'Views': i['views']['count'], 'Reposts': i['reposts']['count']}
             if i['comments']['count'] > 0:
                 posts_with_comments[len(posts_with_comments)+1] = {'ID': i['id'], 'Date': datetime.datetime.utcfromtimestamp(i['date']).strftime('%Y/%m/%d'), 'Comments': i['comments']['count'], 'Likes': i['likes']['count'], 'Views': i['views']['count'], 'Reposts': i['reposts']['count']}
     print('Finished scanning posts')
-    return posts_with_comments
+    return all_posts, posts_with_comments
 
 
 def get_comments(group_id, posts):
@@ -75,11 +76,16 @@ def get_comments(group_id, posts):
                                                                 'Лайки': '',
                                                                 'Ответы': '',
                                                                 'Дата': ''}
+    for key, comment in clean_comments.items():
+        text = comment['Комментарий']
+        sentiment = predict(text)
+        clean_comments[key]['Sentiment'] = sentiment if sentiment else 'Not analyzed'   
     print(f'Starting to retrieve {len(names_ids)} names')
     names = login.method("users.get", {"user_ids": str(names_ids)[1:-1], "fields": "city, country, sex", "name_case": "nom"})
+    sub_status = login.method("groups.isMember", {"group_id": int(str(group_id)[1:]), "user_ids": str(names_ids)[1:-1]})
     SEX = {1: 'Female', 2: 'Male'}
     for i in names:
-        clean_names[len(clean_names)+1] = {'ID': i.get('id'), 'First name': i.get('first_name'), 'Last name': i.get('last_name'), 'City': i.get('city'), 'Country': i.get('country'), 'Sex': SEX[i.get('sex')]}
+        clean_names[len(clean_names)+1] = {'ID': i.get('id'), 'First name': i.get('first_name'), 'Last name': i.get('last_name'), 'Subscriber':sub_status[len(clean_names)]["member"], 'City': i.get('city'), 'Country': i.get('country'), 'Sex': SEX[i.get('sex')]}
     print('Generating df')
 
     return clean_comments, clean_names
@@ -121,8 +127,8 @@ def export_to_csv(spisok):
     df = df.transpose()
     df.to_csv('Комменты.csv', index=False)
 
-posts = get_group_posts(ostin_id, 100)
-comments, users = get_comments(ostin_id, posts)
+posts, posts_with_comments = get_group_posts(ostin_id, 100)
+comments, users = get_comments(ostin_id, posts_with_comments)
 export_to_db(posts, 'Posts')
 export_to_db(comments, 'Comments')
 export_to_db(users, 'Users')
