@@ -1,0 +1,112 @@
+import streamlit as st
+import sqlite3
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import plotly.express as px
+# Подключение к базе данных SQLite
+conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')  # Измененный путь к базе данных
+
+# Создание списка для выбора фильтра
+filter_options = ['Comments', 'Likes', 'Views', 'Reposts']
+selected_filter = st.selectbox('Выберите фильтр для сортировки', filter_options)
+
+# Запрос к базе данных для сортировки и вывода первых 10 строк
+query = f"SELECT * FROM Posts ORDER BY {selected_filter} DESC LIMIT 10;"
+data = pd.read_sql_query(query, conn)
+st.title('Топ постов')
+# Добавление префикса к столбцу "ID" и создание ссылок
+if not data.empty:
+    st.write(f"Топ 10 постов, отсортированных по {selected_filter}:")
+    data.index += 1  # Начать нумерацию с 1
+    
+    # Проверка столбца на наличие 'ID' и создание ссылок
+    if 'ID' in data.columns:
+        data['ID'] = data['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}">{x}</a>')
+    
+    st.write(data.to_html(escape=False), unsafe_allow_html=True)
+else:
+    st.write("Нет данных для отображения.")
+
+st.markdown("")
+st.markdown("")
+query_comments = "SELECT ID, Дата, Комментарий, Лайки, Sentiment FROM Comments ORDER BY Лайки DESC LIMIT 10;"
+data_comments = pd.read_sql_query(query_comments, conn)
+
+# Добавление префикса к столбцу 'ID' и создание активных ссылок
+if not data_comments.empty:
+    st.write("Топ комментариев, отсортированных по Лайкам:")
+    data_comments.index += 1
+    data_comments['ID'] = data_comments['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}">{x}</a>')
+    st.write(data_comments.to_html(escape=False), unsafe_allow_html=True)
+else:
+    st.write("Нет данных для отображения в таблице Comments.")
+
+st.markdown("")
+st.markdown("")
+# Виджеты для ввода временного периода
+start_date_reac = st.date_input("Выберите начальную дату")
+end_date_reac = st.date_input("Выберите конечную дату")
+
+# Преобразование введенных пользователем дат в формат ГГГГ/ММ/ДД для SQL запроса
+start_date_str_reac = start_date_reac.strftime('%Y/%m/%d')
+end_date_str_reac = end_date_reac.strftime('%Y/%m/%d')
+
+# Запрос к базе данных для таблицы Posts с фильтром по датам
+query_posts = f"SELECT ID, Comments, Likes, Reposts FROM Posts WHERE Date BETWEEN '{start_date_str_reac}' AND '{end_date_str_reac}'"
+data_posts = pd.read_sql_query(query_posts, conn)
+
+# Преобразование ID в строку и добавление ссылок
+data_posts['ID'] = data_posts['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
+
+# Отображение трех рядом стоящих столбчатых диаграмм
+if not data_posts.empty:
+
+    # Создание трех рядом стоящих столбчатых диаграмм
+    fig = px.bar(data_posts, x='ID', y=['Comments', 'Likes', 'Reposts'], barmode='group')
+
+    # Настройка осей и заголовка
+    fig.update_layout(
+        xaxis=dict(title='ID'),
+        yaxis=dict(title='Значения'),
+        title='Анализ реакций на посты'
+    )
+
+    st.plotly_chart(fig)
+else:
+    st.write("Нет данных для отображения.")
+
+st.markdown("")
+st.markdown("")
+# Виджеты для ввода временного периода
+start_date_views = st.date_input("Выберите начальную дату",key='start_date_views')
+end_date_views = st.date_input("Выберите конечную дату",key='end_date_views')
+
+# Преобразование введенных пользователем дат в формат ГГГГ/ММ/ДД для SQL запроса
+start_date_str_views = start_date_views.strftime('%Y/%m/%d')
+end_date_str_views = end_date_views.strftime('%Y/%m/%d')
+
+# Запрос к базе данных для таблицы Posts с фильтром по датам и столбцом 'Views'
+query_views = f"SELECT Date, Views, ID FROM Posts WHERE Date BETWEEN '{start_date_str_views}' AND '{end_date_str_views}';"
+data_views = pd.read_sql_query(query_views, conn)
+
+
+if not data_views.empty:
+    # Преобразование ID в строку и создание ссылок
+    data_views['ID'] = data_views['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
+
+    # Построение диаграммы временного ряда
+    fig = px.line(data_views, x='ID', y='Views', title='Динамика просмотров в выбранном временном периоде')
+
+    # Настройка осей и заголовка
+    fig.update_layout(
+        xaxis=dict(title='ID постов', type='category'),
+        yaxis=dict(title='Просмотры'),
+        title='Динамика просмотров постов в выбранном временном периоде'
+    )
+
+    st.plotly_chart(fig)
+else:
+    st.write("Нет данных для отображения.")
+# Закрытие соединения с базой данных SQLite
+conn.close()
