@@ -1,0 +1,28 @@
+import sqlite3
+
+
+conn = sqlite3.connect('test.db')
+cursor = conn.cursor()
+
+
+
+cursor.execute('''SELECT DISTINCT ID FROM Posts''')
+ids = cursor.fetchall()
+
+for id in ids:
+    cursor.execute('''SELECT Sentiment, COUNT(*) AS Count
+                      FROM Comments
+                      WHERE ID = ?
+                      GROUP BY Sentiment
+                      ORDER BY Count DESC''', id)
+    results = cursor.fetchall()
+    if results:
+        dominant_sentiments = [result[0] for result in results if result[1] == results[0][1]]
+        dominant_sentiment = '/'.join(dominant_sentiments)
+        cursor.execute('''UPDATE Posts
+                          SET Dominant_Sentiment = ?
+                          WHERE ID = ?''', (dominant_sentiment, id[0]))
+conn.commit()
+
+
+conn.close()
