@@ -1,163 +1,226 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
 import plotly.express as px
 
-conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
-
-
-filter_options = ['Comments', 'Likes', 'Views', 'Reposts']
-selected_filter = st.selectbox('Выберите фильтр для сортировки', filter_options)
-
-query = f"SELECT * FROM Posts ORDER BY {selected_filter} DESC LIMIT 10;"
-data = pd.read_sql_query(query, conn)
-st.title('Топ постов')
-
-if not data.empty:
-    st.write(f"**Топ 10 постов, отсортированных по {selected_filter}:**")
-    data.index += 1  # Начать нумерацию с 1
-    
-
-    if 'ID' in data.columns:
-        data['ID'] = data['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}">{x}</a>')
-    
-    st.write(data.to_html(escape=False), unsafe_allow_html=True)
-else:
-    st.write("Нет данных для отображения.")
-
-st.markdown("")
-st.markdown("")
-query_comments = "SELECT ID, Дата, Комментарий, Лайки, Sentiment FROM Comments ORDER BY Лайки DESC LIMIT 10;"
-data_comments = pd.read_sql_query(query_comments, conn)
-
-
-if not data_comments.empty:
-    st.write("**Топ комментариев, отсортированных по Лайкам:**")
-    data_comments.index += 1
-    data_comments['ID'] = data_comments['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}">{x}</a>')
-    st.write(data_comments.to_html(escape=False), unsafe_allow_html=True)
-else:
-    st.write("Нет данных для отображения в таблице Comments.")
-
-
-st.markdown("")
-st.markdown("")
-
-st.markdown("**Активность на постах**")
-
-
-start_date_reac = st.date_input("Выберите начальную дату")
-end_date_reac = st.date_input("Выберите конечную дату")
-
-
-start_date_str_reac = start_date_reac.strftime('%Y/%m/%d')
-end_date_str_reac = end_date_reac.strftime('%Y/%m/%d')
-
-query_posts = f"SELECT ID, Comments, Likes, Reposts FROM Posts WHERE Date BETWEEN '{start_date_str_reac}' AND '{end_date_str_reac}'"
-data_posts = pd.read_sql_query(query_posts, conn)
-
-data_posts['ID'] = data_posts['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
-
-if not data_posts.empty:
-
-    fig = px.bar(data_posts, x='ID', y=['Comments', 'Likes', 'Reposts'], barmode='group')
-
-    
-    fig.update_layout(
-        xaxis=dict(title='ID'),
-        yaxis=dict(title='Значения'),
-        title='Анализ реакций на посты'
-    )
-
-    st.plotly_chart(fig)
-else:
-    st.write("Нет данных для отображения.")
-
-st.markdown("")
-st.markdown("")
-
-st.markdown("**Просмотры**")
-
-start_date_views = st.date_input("Выберите начальную дату",key='start_date_views')
-end_date_views = st.date_input("Выберите конечную дату",key='end_date_views')
-
-start_date_str_views = start_date_views.strftime('%Y/%m/%d')
-end_date_str_views = end_date_views.strftime('%Y/%m/%d')
-
-
-query_views = f"SELECT Date, Views, ID FROM Posts WHERE Date BETWEEN '{start_date_str_views}' AND '{end_date_str_views}';"
-data_views = pd.read_sql_query(query_views, conn)
-
-
-if not data_views.empty:
-    data_views['ID'] = data_views['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
-
-    fig = px.line(data_views, x='ID', y='Views', title='Динамика просмотров в выбранном временном периоде')
-
-    fig.update_layout(
-        xaxis=dict(title='ID постов', type='category'),
-        yaxis=dict(title='Просмотры'),
-        title='Динамика просмотров постов в выбранном временном периоде'
-    )
-
-    st.plotly_chart(fig)
-else:
-    st.write("Нет данных для отображения.")
-
-st.markdown("")
-st.markdown("")
-
-st.markdown("**Тональность отзывов**")
-start_date_sent = st.date_input("Выберите начальную дату",key='start_date_sent')
-end_date_sent = st.date_input("Выберите конечную дату",key='end_date_sent')
-
-start_date_str_sent = start_date_sent.strftime('%Y/%m/%d')
-end_date_str_sent = end_date_sent.strftime('%Y/%m/%d')
-
-query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN (SELECT ID FROM Posts WHERE Date BETWEEN '{start_date_str_sent}' AND '{end_date_str_sent}');"
-data_comments = pd.read_sql_query(query_comments, conn)
-
-if not data_comments.empty:
-
-    grouped = data_comments.groupby(['Пост', 'Sentiment']).size().reset_index(name='Частота')
-    grouped['Пост'] = grouped['Пост'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
+def main():
+    st.title("Главная страница")
+    st.write("Привет! Это главная страница.")
+    conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
    
-    color_map = {'Positive': 'lightgreen'}
-    fig = px.bar(grouped, x='Пост', y='Частота', color='Sentiment', 
-                 title='Анализ тональности комментариев',
-                 labels={'Посты': 'Посты', 'Частота': 'Количество'}, color_discrete_map=color_map)
+    tables = {
+        'Комментарии': pd.read_sql_query("SELECT * FROM Comments;", conn),
+        'Посты': pd.read_sql_query("SELECT * FROM Posts;", conn),
+        'Комментаторы': pd.read_sql_query("SELECT * FROM Users;", conn),
+    }
 
-    # Настройка осей и подписей
-    fig.update_layout(xaxis_type='category', xaxis_title='Посты', yaxis_title='Количество')
+    
+    selected_table = st.selectbox("Выберите таблицу", list(tables.keys()))
 
-    st.plotly_chart(fig)
-else:
-    st.write("Нет данных для отображения.")
-
-st.markdown("")
-st.markdown("")
-
-
-st.markdown("**Круговая диаграмма для главной страницы**")
-start_date_round = st.date_input("Выберите начальную дату",key='start_date_round')
-end_date_round = st.date_input("Выберите конечную дату",key='end_date_round')
-
-start_date_str_round = start_date_round.strftime('%Y/%m/%d')
-end_date_str_round = end_date_round.strftime('%Y/%m/%d')
-
-
-query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN (SELECT ID FROM Posts WHERE Date BETWEEN '{start_date_str_round}' AND '{end_date_str_round}');"
-data_comments = pd.read_sql_query(query_comments, conn)
-
-if not data_comments.empty:
-    color_map = {'Positive': 'lightgreen'}
-
-    fig_pie = px.pie(data_comments, names='Sentiment', title='Анализ тональности комментариев', color_discrete_map = color_map)
-
-    st.plotly_chart(fig_pie)
-else:
-    st.write("Нет данных для отображения.")
    
-conn.close()
+    if selected_table in tables:
+        st.write(tables[selected_table])
+    else:
+        st.write("Такой таблицы нет.")
+
+    st.subheader('Общий анализ тональности комментариев')
+    start_date_round = st.date_input("Выберите начальную дату",key='start_date_round')
+    end_date_round = st.date_input("Выберите конечную дату",key='end_date_round')
+
+    start_date_str_round = start_date_round.strftime('%Y/%m/%d')
+    end_date_str_round = end_date_round.strftime('%Y/%m/%d')
+
+
+    query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN (SELECT ID FROM Posts WHERE Date BETWEEN '{start_date_str_round}' AND '{end_date_str_round}');"
+    data_comments = pd.read_sql_query(query_comments, conn)
+
+    if not data_comments.empty:
+        color_map = {'Positive': '#00FF7F','Negative': '#E32636'}
+        fig_pie = px.pie(data_comments, names='Sentiment', title='Анализ тональности комментариев', color_discrete_map = color_map)
+
+        st.plotly_chart(fig_pie)
+    else:
+        st.write("Нет данных для отображения.")
+   
+    
+    conn.close()
+
+
+def statistics():
+    conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
+    st.header('Динамика показателей')
+    
+    st.subheader('Активность на постах')
+
+    start_date_reac = st.date_input("Выберите начальную дату")
+    end_date_reac = st.date_input("Выберите конечную дату")
+
+
+    start_date_str_reac = start_date_reac.strftime('%Y/%m/%d')
+    end_date_str_reac = end_date_reac.strftime('%Y/%m/%d')
+
+    query_posts = f"SELECT ID, Comments, Likes, Reposts FROM Posts WHERE Date BETWEEN '{start_date_str_reac}' AND '{end_date_str_reac}'"
+    data_posts = pd.read_sql_query(query_posts, conn)
+
+    data_posts['ID'] = data_posts['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
+
+    if not data_posts.empty:
+
+        fig = px.bar(data_posts, x='ID', y=['Comments', 'Likes', 'Reposts'], barmode='group')
+
+        
+        fig.update_layout(
+            xaxis=dict(title='ID'),
+            yaxis=dict(title='Значения'),
+            title='Анализ реакций на посты'
+        )
+
+        st.plotly_chart(fig)
+    else:
+        st.write("Нет данных для отображения.")
+
+    st.markdown("")
+    st.markdown("")
+
+    st.subheader('Динамика просмотров')
+    start_date_views = st.date_input("Выберите начальную дату",key='start_date_views')
+    end_date_views = st.date_input("Выберите конечную дату",key='end_date_views')
+
+    start_date_str_views = start_date_views.strftime('%Y/%m/%d')
+    end_date_str_views = end_date_views.strftime('%Y/%m/%d')
+
+
+    query_views = f"SELECT Date, Views, ID FROM Posts WHERE Date BETWEEN '{start_date_str_views}' AND '{end_date_str_views}';"
+    data_views = pd.read_sql_query(query_views, conn)
+
+
+    if not data_views.empty:
+        data_views['ID'] = data_views['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
+
+        fig = px.line(data_views, x='ID', y='Views', title='Динамика просмотров в выбранном временном периоде')
+
+        fig.update_layout(
+            xaxis=dict(title='ID постов', type='category'),
+            yaxis=dict(title='Просмотры'),
+            title='Динамика просмотров постов в выбранном временном периоде'
+        )
+
+        st.plotly_chart(fig)
+    else:
+        st.write("Нет данных для отображения.")
+
+    st.markdown("")
+    st.markdown("")
+    
+    st.subheader('Тональность отзывов')
+    start_date_sent = st.date_input("Выберите начальную дату",key='start_date_sent')
+    end_date_sent = st.date_input("Выберите конечную дату",key='end_date_sent')
+
+    start_date_str_sent = start_date_sent.strftime('%Y/%m/%d')
+    end_date_str_sent = end_date_sent.strftime('%Y/%m/%d')
+
+    query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN (SELECT ID FROM Posts WHERE Date BETWEEN '{start_date_str_sent}' AND '{end_date_str_sent}');"
+    data_comments = pd.read_sql_query(query_comments, conn)
+
+    if not data_comments.empty:
+
+        grouped = data_comments.groupby(['Пост', 'Sentiment']).size().reset_index(name='Частота')
+        grouped['Пост'] = grouped['Пост'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}" target="_blank">{x}</a>')
+    
+        color_map = {'Positive': 'lightgreen'}
+        fig = px.bar(grouped, x='Пост', y='Частота', color='Sentiment', 
+                    title='Анализ тональности комментариев',
+                    labels={'Посты': 'Посты', 'Частота': 'Количество'}, color_discrete_map=color_map)
+
+        # Настройка осей и подписей
+        fig.update_layout(xaxis_type='category', xaxis_title='Посты', yaxis_title='Количество')
+
+        st.plotly_chart(fig)
+    else:
+        st.write("Нет данных для отображения.")
+
+    st.markdown("")
+    st.markdown("")
+    conn.close()
+
+def tops():
+    conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
+    filter_options = ['Comments', 'Likes', 'Views', 'Reposts']
+    st.title('Топ постов')
+    selected_filter = st.selectbox('Выберите фильтр для сортировки', filter_options)
+
+    query = f"SELECT * FROM Posts ORDER BY {selected_filter} DESC LIMIT 10;"
+    data = pd.read_sql_query(query, conn)
+    
+
+    if not data.empty:
+        st.write(f"**Топ 10 постов, отсортированных по {selected_filter}:**")
+        data.index += 1  # Начать нумерацию с 1
+        
+
+        if 'ID' in data.columns:
+            data['ID'] = data['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}">{x}</a>')
+        
+        st.write(data.to_html(escape=False), unsafe_allow_html=True)
+    else:
+        st.write("Нет данных для отображения.")
+
+    st.markdown("")
+    st.markdown("")
+    query_comments = "SELECT ID, Дата, Комментарий, Лайки, Sentiment FROM Comments ORDER BY Лайки DESC LIMIT 10;"
+    data_comments = pd.read_sql_query(query_comments, conn)
+
+
+    if not data_comments.empty:
+        st.write("**Топ комментариев, отсортированных по Лайкам:**")
+        data_comments.index += 1
+        data_comments['ID'] = data_comments['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}">{x}</a>')
+        st.write(data_comments.to_html(escape=False), unsafe_allow_html=True)
+    else:
+        st.write("Нет данных для отображения в таблице Comments.")
+    conn.close()
+
+def audience():
+    st.header('Анализ аудитории')
+    conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
+    query_users = "SELECT Sex FROM Users;"
+    data_users = pd.read_sql_query(query_users, conn)
+
+    if not data_users.empty:
+        fig_pie = px.pie(data_users, names='Sex', title='Пол комментаторов')
+        fig_pie.update_traces(marker=dict(colors=['#FF69B4', '#1f77b4']))
+        st.plotly_chart(fig_pie)
+    else:
+        st.write("Нет данных для отображения.")
+   
+    
+    query = "SELECT Subscriber FROM Users;"
+    data = pd.read_sql_query(query, conn)
+
+    
+    subscriber_count = data['Subscriber'].value_counts()
+
+    subscriber_count.index = subscriber_count.index.map({1: 'Комментаторы, которые подписаны', 0: 'Комментаторы, которые не подписаны'})
+
+    
+    fig = px.pie(subscriber_count, values=subscriber_count.values, names=subscriber_count.index, 
+                title='Анализ подписчиков')
+
+    
+    fig.update_traces(textinfo='percent+label')
+
+    
+    st.plotly_chart(fig)
+
+    conn.close()
+
+pages = {
+    "Главная": main,
+    "Анализ статистики": statistics,
+    'Топ': tops,
+    'Анализ аудитории': audience
+}
+
+selection = st.sidebar.radio("Выберите страницу", list(pages.keys()))
+
+pages[selection]()
