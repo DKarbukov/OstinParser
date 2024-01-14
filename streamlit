@@ -136,9 +136,9 @@ def statistics():
 
 def tops():
     conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
-    filter_options = ['Comments', 'Likes', 'Views', 'Reposts']
-    st.title('Топ постов')
     
+    st.title('Топ постов')
+    filter_options = ['Comments', 'Likes', 'Views', 'Reposts']
     selected_filter = st.selectbox('Выберите фильтр для сортировки', filter_options)
     st.subheader(f"**Топ 10 постов, отсортированных по {selected_filter}:**")
     start_date_top_post = st.date_input("Выберите начальную дату")
