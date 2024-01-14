@@ -83,14 +83,9 @@ def statistics():
     st.markdown("")
 
     st.subheader('Динамика просмотров')
-    start_date_views = st.date_input("Выберите начальную дату",key='start_date_views')
-    end_date_views = st.date_input("Выберите конечную дату",key='end_date_views')
-
-    start_date_str_views = start_date_views.strftime('%Y/%m/%d')
-    end_date_str_views = end_date_views.strftime('%Y/%m/%d')
 
 
-    query_views = f"SELECT Date, Views, ID FROM Posts WHERE Date BETWEEN '{start_date_str_views}' AND '{end_date_str_views}';"
+    query_views = f"SELECT Date, Views, ID FROM Posts WHERE Date BETWEEN '{start_date_reac}' AND '{end_date_str_reac}';"
     data_views = pd.read_sql_query(query_views, conn)
 
 
@@ -113,13 +108,9 @@ def statistics():
     st.markdown("")
     
     st.subheader('Тональность отзывов')
-    start_date_sent = st.date_input("Выберите начальную дату",key='start_date_sent')
-    end_date_sent = st.date_input("Выберите конечную дату",key='end_date_sent')
+    
 
-    start_date_str_sent = start_date_sent.strftime('%Y/%m/%d')
-    end_date_str_sent = end_date_sent.strftime('%Y/%m/%d')
-
-    query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN (SELECT ID FROM Posts WHERE Date BETWEEN '{start_date_str_sent}' AND '{end_date_str_sent}');"
+    query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN (SELECT ID FROM Posts WHERE Date BETWEEN '{start_date_reac}' AND '{end_date_str_reac}');"
     data_comments = pd.read_sql_query(query_comments, conn)
 
     if not data_comments.empty:
@@ -147,15 +138,22 @@ def tops():
     conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
     filter_options = ['Comments', 'Likes', 'Views', 'Reposts']
     st.title('Топ постов')
+    
     selected_filter = st.selectbox('Выберите фильтр для сортировки', filter_options)
+    st.subheader(f"**Топ 10 постов, отсортированных по {selected_filter}:**")
+    start_date_top_post = st.date_input("Выберите начальную дату")
+    end_date_top_post = st.date_input("Выберите конечную дату")
 
-    query = f"SELECT * FROM Posts ORDER BY {selected_filter} DESC LIMIT 10;"
+    
+    start_date_str_top_post = start_date_top_post.strftime('%Y/%m/%d')
+    end_date_str_top_post = end_date_top_post.strftime('%Y/%m/%d')
+    query = f"SELECT * FROM Posts WHERE Date BETWEEN '{start_date_str_top_post}' AND '{end_date_str_top_post}' ORDER BY {selected_filter} DESC LIMIT 10;"
     data = pd.read_sql_query(query, conn)
     
 
     if not data.empty:
-        st.write(f"**Топ 10 постов, отсортированных по {selected_filter}:**")
-        data.index += 1  # Начать нумерацию с 1
+        
+        data.index += 1  
         
 
         if 'ID' in data.columns:
@@ -167,12 +165,15 @@ def tops():
 
     st.markdown("")
     st.markdown("")
-    query_comments = "SELECT ID, Дата, Комментарий, Лайки, Sentiment FROM Comments ORDER BY Лайки DESC LIMIT 10;"
+    st.subheader("Топ комментариев, отсортированных по Лайкам:")
+    
+    
+    query_comments = f"SELECT ID, Дата, Комментарий, Лайки, Sentiment FROM Comments WHERE Дата BETWEEN '{start_date_str_top_post}' AND '{end_date_str_top_post}' ORDER BY Лайки DESC LIMIT 10;"
     data_comments = pd.read_sql_query(query_comments, conn)
 
 
     if not data_comments.empty:
-        st.write("**Топ комментариев, отсортированных по Лайкам:**")
+        
         data_comments.index += 1
         data_comments['ID'] = data_comments['ID'].apply(lambda x: f'<a href="https://vk.com/ostin?w=wall-20367999_{x}">{x}</a>')
         st.write(data_comments.to_html(escape=False), unsafe_allow_html=True)
@@ -193,26 +194,26 @@ def audience():
     else:
         st.write("Нет данных для отображения.")
    
-    
+   
     query = "SELECT Subscriber FROM Users;"
     data = pd.read_sql_query(query, conn)
 
-    
+   
     subscriber_count = data['Subscriber'].value_counts()
 
     subscriber_count.index = subscriber_count.index.map({1: 'Комментаторы, которые подписаны', 0: 'Комментаторы, которые не подписаны'})
 
-    
+   
     fig = px.pie(subscriber_count, values=subscriber_count.values, names=subscriber_count.index, 
                 title='Анализ подписчиков')
 
-    
     fig.update_traces(textinfo='percent+label')
 
     
     st.plotly_chart(fig)
 
     conn.close()
+
 
 pages = {
     "Главная": main,
@@ -221,6 +222,8 @@ pages = {
     'Анализ аудитории': audience
 }
 
+
 selection = st.sidebar.radio("Выберите страницу", list(pages.keys()))
+
 
 pages[selection]()
