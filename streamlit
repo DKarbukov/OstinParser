@@ -2,9 +2,14 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import plotly.express as px
-    
-start_date = st.sidebar.date_input("Выберите начальную дату",key='start_date_round')
-end_date = st.sidebar.date_input("Выберите конечную дату",key='end_date_round')
+from datetime import datetime, timedelta   
+from io import BytesIO
+
+end_date_default = datetime.now().date()
+start_date_default = end_date_default - timedelta(days=7)
+
+start_date = st.sidebar.date_input("Выберите начальную дату",start_date_default)
+end_date = st.sidebar.date_input("Выберите конечную дату",end_date_default)
 
 start_date_str = start_date.strftime('%Y/%m/%d')
 end_date_str = end_date.strftime('%Y/%m/%d')
@@ -15,8 +20,9 @@ def main():
     st.write("Привет! Это главная страница.")
     conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
     # Загрузка данных из разных таблиц
+    
     tables = {
-        'Комментарии': pd.read_sql_query("SELECT * FROM Comments;", conn),
+        'Комментарии': pd.read_sql_query("SELECT * FROM Comments WHERE Пользователь != '-20367999';", conn),
         'Посты': pd.read_sql_query("SELECT * FROM Posts;", conn),
         'Комментаторы': pd.read_sql_query("SELECT * FROM Users;", conn),
     }
@@ -24,11 +30,48 @@ def main():
     # Выбор таблицы для отображения с помощью selectbox
     selected_table = st.selectbox("Выберите таблицу", list(tables.keys()))
 
-    # Отображение выбранной таблицы
-    if selected_table in tables:
-        st.write(tables[selected_table])
+    if selected_table == 'Комментарии'or  selected_table == "Посты":
+        # Добавляем фильтр по значению столбца "Sentiment"
+        sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique())
+        # Добавляем поле для ввода количества строк
+        rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]))
+        
+        if sentiment_filter:
+            filtered_data = tables[selected_table][tables[selected_table]['Sentiment'].isin(sentiment_filter)].head(rows_to_display)
+        else:
+            # Если нет фильтра, отображаем все строки
+            filtered_data = tables[selected_table].head(rows_to_display)
+         # Сбрасываем индекс и устанавливаем начальное значение в 1
+        filtered_data = filtered_data.reset_index(drop=True)
+        st.write(filtered_data)
+        if st.button("Выгрузить в Excel"):
+            excel_file = BytesIO()
+            filtered_data.to_excel(excel_file, index=False, engine='openpyxl')
+            excel_file.seek(0)
+            st.download_button(
+                label="Скачать Excel файл",
+                data=excel_file,
+                file_name=f"{selected_table}_export.xlsx",
+                key="download_button",
+            )
+    
     else:
-        st.write("Такой таблицы нет.")
+        # Добавляем поле для ввода количества строк
+        rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]))
+         # Сбрасываем индекс и устанавливаем начальное значение в 1
+        filtered_data = tables[selected_table].head(rows_to_display).reset_index(drop=True)
+        st.write(filtered_data)
+        if st.button("Выгрузить в Excel"):
+            excel_file = BytesIO()
+            filtered_data.to_excel(excel_file, index=False, engine='openpyxl')
+            excel_file.seek(0)
+            st.download_button(
+                label="Скачать Excel файл",
+                data=excel_file,
+                file_name=f"{selected_table}_export.xlsx",
+                key="download_button",
+            )
+
 
     st.subheader('Общий анализ тональности комментариев')
 
@@ -46,7 +89,7 @@ def main():
     
     conn.close()
 
-# Содержимое страницы "О нас"
+# Содержимое страницы "Статистика"
 def statistics():
     conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
     st.header('Динамика показателей')
@@ -217,7 +260,7 @@ def audience():
                 title='Анализ подписчиков')
 
     # Настройка подписей
-    fig.update_traces(textinfo='percent+label')
+    fig.update_traces(textinfo='percent')
 
     # Отображение диаграммы
     st.plotly_chart(fig)
