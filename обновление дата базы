@@ -5,6 +5,7 @@ conn = sqlite3.connect('test.db')
 cursor = conn.cursor()
 
 
+cursor.execute("ALTER TABLE Posts ADD COLUMN Sentiment TEXT")
 
 cursor.execute('''SELECT DISTINCT ID FROM Posts''')
 ids = cursor.fetchall()
@@ -20,7 +21,7 @@ for id in ids:
         dominant_sentiments = [result[0] for result in results if result[1] == results[0][1]]
         dominant_sentiment = '/'.join(dominant_sentiments)
         cursor.execute('''UPDATE Posts
-                          SET Dominant_Sentiment = ?
+                          SET Sentiment = ?
                           WHERE ID = ?''', (dominant_sentiment, id[0]))
 conn.commit()
 
