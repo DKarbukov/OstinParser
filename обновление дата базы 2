@@ -1,0 +1,24 @@
+import sqlite3
+
+conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
+cursor = conn.cursor()
+
+# Создайте новые столбцы в таблице Comments (если они еще не созданы)
+# Если столбцы уже созданы, этот шаг можно пропустить
+
+
+# Обновите значения новых столбцов в таблице Comments на основе значений из таблицы Users
+
+query_update_columns = """
+    UPDATE Comments
+    SET City = (SELECT City FROM Users WHERE Users.ID = Comments.Пользователь),
+        Country = (SELECT Country FROM Users WHERE Users.ID = Comments.Пользователь),
+        Sex = (SELECT Sex FROM Users WHERE Users.ID = Comments.Пользователь);
+"""
+cursor.execute(query_update_columns)
+
+# Подтвердите изменения в базе данных
+conn.commit()
+
+# Закройте соединение
+conn.close()
