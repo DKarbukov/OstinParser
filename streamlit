@@ -19,20 +19,87 @@ def main():
     st.title("Главная страница")
     st.write("Привет! Это главная страница.")
     conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
-    # Загрузка данных из разных таблиц
+   
     
     tables = {
         'Комментарии': pd.read_sql_query("SELECT * FROM Comments WHERE Пользователь != '-20367999';", conn),
-        'Посты': pd.read_sql_query("SELECT * FROM Posts;", conn),
+        'Посты': pd.read_sql_query("SELECT CAST(ID AS TEXT),* FROM Posts;", conn),
         'Комментаторы': pd.read_sql_query("SELECT * FROM Users;", conn),
     }
 
     # Выбор таблицы для отображения с помощью selectbox
     selected_table = st.selectbox("Выберите таблицу", list(tables.keys()))
 
-    if selected_table == 'Комментарии'or  selected_table == "Посты":
+    if selected_table == 'Комментарии':
+        
+        sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
+        country_filter = st.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[])
+        city_filter = st.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[])
+        sex_filter = st.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[])
+
+        date_type = st.radio("Выберите тип фильтрации по дате", ["Диапазон дат", "Конкретная дата", 'Все'], index=2)
+        if date_type == "Диапазон дат":
+            start_date_tab = st.date_input("Выберите начальную дату", datetime.now() - timedelta(days=7), key='start_date_tab')
+            end_date_tab = st.date_input("Выберите конечную дату", datetime.now(),key='end_date_tab')
+            start_date_tab_str = start_date_tab.strftime('%Y/%m/%d')
+            end_date_tab_str = end_date_tab.strftime('%Y/%m/%d')
+            filtered_data = tables[selected_table][(tables[selected_table]['Дата'] >= start_date_tab_str) & (tables[selected_table]['Дата'] <= end_date_tab_str)]
+        elif date_type == "Конкретная дата":
+            selected_date = st.date_input("Выберите конкретную дату", datetime.now())
+            selected_date_str = selected_date.strftime('%Y/%m/%d')
+            filtered_data = tables[selected_table][tables[selected_table]['Дата'] == selected_date_str]
+        else: 
+            filtered_data = tables[selected_table]
+        
+
+        if sentiment_filter:
+            filtered_data = filtered_data[filtered_data['Sentiment'].isin(sentiment_filter)]
+        if city_filter:
+            filtered_data = filtered_data[filtered_data['City'].isin(city_filter)]
+        if country_filter:
+            filtered_data = filtered_data[filtered_data['Country'].isin(country_filter)]
+        if sex_filter:
+            filtered_data = filtered_data[filtered_data['Sex'].isin(sex_filter)]
+         # Добавление поля ввода числового значения для фильтрации по столбцу ID
+        id_filter_value = st.number_input("Поиск всех комментариев человека по его ID (столбец пользователь)", min_value=0)
+        # Применение фильтрации по столбцу ID
+        filtered_data = filtered_data[filtered_data['Пользователь'] == id_filter_value]
+
+        filtered_data['ID'] = filtered_data['ID'].astype(str)
+        filtered_data['Пост'] = filtered_data['Пост'].astype(str)
+        filtered_data['Пользователь'] = filtered_data['Пользователь'].astype(str)
+        
+        rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]), key='rows')
+
+        filtered_data = filtered_data.head(rows_to_display).reset_index(drop=True)
+        
+        st.write(filtered_data)
+        
+        if st.button("Выгрузить в Excel", key = 'button1'):
+            excel_file = BytesIO()
+            filtered_data.to_excel(excel_file, index=False, engine='openpyxl')
+            excel_file.seek(0)
+            st.download_button(
+                label="Скачать Excel файл",
+                data=excel_file,
+                file_name=f"{selected_table}.xlsx",
+                key="download_button1",
+            )
+        if not filtered_data.empty:
+            color_map = {'Positive': '#00FF7F', 'Negative': '#E32636'}
+
+            
+            fig_pie = px.pie(filtered_data, names='Sentiment', title='Анализ тональности комментариев', color_discrete_map=color_map)
+
+            st.plotly_chart(fig_pie)
+        else:
+            st.write("Нет данных для отображения.")
+
+    if selected_table == "Посты":
         # Добавляем фильтр по значению столбца "Sentiment"
-        sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique())
+        sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
+
+        
         # Добавляем поле для ввода количества строк
         rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]))
         
@@ -43,57 +110,99 @@ def main():
             filtered_data = tables[selected_table].head(rows_to_display)
          # Сбрасываем индекс и устанавливаем начальное значение в 1
         filtered_data = filtered_data.reset_index(drop=True)
+        
+        filtered_data['ID'] = filtered_data['ID'].astype(str)
+        filtered_data['Views'] = filtered_data['Views'].astype(str)
+
         st.write(filtered_data)
-        if st.button("Выгрузить в Excel"):
+        if st.button("Выгрузить в Excel", key = 'button2'):
             excel_file = BytesIO()
             filtered_data.to_excel(excel_file, index=False, engine='openpyxl')
             excel_file.seek(0)
             st.download_button(
                 label="Скачать Excel файл",
                 data=excel_file,
-                file_name=f"{selected_table}_export.xlsx",
-                key="download_button",
+                file_name=f"{selected_table}.xlsx",
+                key="download_button2",
             )
+        #График, который берет значения столбца "Sentiment" и показывает на круговой диаграмме % появления этих значений 
+        if not filtered_data.empty:
+            color_map = {'Positive': '#00FF7F', 'Negative': '#E32636'}
+            fig_pie = px.pie(filtered_data, names='Sentiment', title='Анализ общей тональности комментариев на постах', color_discrete_map=color_map)
+
+            st.plotly_chart(fig_pie)
+        else:
+            st.write("Нет данных для отображения.")
     
-    else:
-        # Добавляем поле для ввода количества строк
+    if selected_table == 'Комментаторы':
+        country_filter = st.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[],key = 'user_country')
+        city_filter = st.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[],key = 'user_city')
+        sex_filter = st.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[],key = 'user_sex')
+        
         rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]))
-         # Сбрасываем индекс и устанавливаем начальное значение в 1
-        filtered_data = tables[selected_table].head(rows_to_display).reset_index(drop=True)
+        
+        
+        filtered_data = tables[selected_table]
+
+        if city_filter:
+            filtered_data = filtered_data[filtered_data['City'].isin(city_filter)]
+        if country_filter:
+            filtered_data = filtered_data[filtered_data['Country'].isin(country_filter)]
+        if sex_filter:
+            filtered_data = filtered_data[filtered_data['Sex'].isin(sex_filter)]
+
+        filtered_data = filtered_data.head(rows_to_display).reset_index(drop=True)
+        
+        filtered_data['ID'] = filtered_data['ID'].astype(str)
         st.write(filtered_data)
-        if st.button("Выгрузить в Excel"):
+
+    
+        if st.button("Выгрузить в Excel", key = 'button3'):
             excel_file = BytesIO()
             filtered_data.to_excel(excel_file, index=False, engine='openpyxl')
             excel_file.seek(0)
             st.download_button(
                 label="Скачать Excel файл",
                 data=excel_file,
-                file_name=f"{selected_table}_export.xlsx",
-                key="download_button",
+                file_name=f"{selected_table}.xlsx",
+                key="download_button3",
             )
 
-
-    st.subheader('Общий анализ тональности комментариев')
-
-    query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN (SELECT ID FROM Posts WHERE Date BETWEEN '{start_date_str}' AND '{end_date_str}');"
-    data_comments = pd.read_sql_query(query_comments, conn)
-
-    if not data_comments.empty:
-        color_map = {'Positive': '#00FF7F','Negative': '#E32636'}
-        fig_pie = px.pie(data_comments, names='Sentiment', title='Анализ тональности комментариев', color_discrete_map = color_map)
-
-        st.plotly_chart(fig_pie)
-    else:
-        st.write("Нет данных для отображения.")
+        if not filtered_data.empty:
+            fig_pie = px.pie(filtered_data, names='Sex', title='Пол комментаторов')
+            fig_pie.update_traces(marker=dict(colors=['#FF69B4', '#1f77b4']))
+            st.plotly_chart(fig_pie)
+        else:
+            st.write("Нет данных для отображения.")
    
+
+        
+        if not filtered_data.empty:
+         # Подсчет частоты значений '1' и '0' в столбце 'Subscriber'
+            subscriber_count = filtered_data['Subscriber'].value_counts()
+            subscriber_count.index = subscriber_count.index.map({1: 'Комментаторы, которые подписаны', 0: 'Комментаторы, которые не подписаны'})
+            # Создание круговой диаграммы
+            fig = px.pie(subscriber_count, values=subscriber_count.values, names=subscriber_count.index, 
+                        title='Анализ подписчиков')
+
+         
+            fig.update_traces(textinfo='percent')
+
+            # Отображение графика
+            st.plotly_chart(fig)
+        else:
+            st.write("Нет данных для отображения.")   
+    
     
     conn.close()
 
 # Содержимое страницы "Статистика"
 def statistics():
+    
     conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
     st.header('Динамика показателей')
-    
+
+
     st.subheader('Динамика просмотров')
     query_views = f"SELECT Date, Views, ID FROM Posts WHERE Date BETWEEN '{start_date_str}' AND '{end_date_str}';"
     data_views = pd.read_sql_query(query_views, conn)
@@ -190,9 +299,6 @@ def statistics():
     else:
         st.write("Нет данных для отображения.")
 
-
-    
-
     conn.close()
 
 def tops():
@@ -201,9 +307,12 @@ def tops():
     st.title('Топ постов')
     filter_options = ['Comments', 'Likes', 'Views', 'Reposts']
     selected_filter = st.selectbox('Выберите фильтр для сортировки', filter_options)
-    st.subheader(f"**Топ 10 постов, отсортированных по {selected_filter}:**")
+    
+    num_to_display = st.number_input("Введите количество постов и комментариев для отображения", min_value=1, value=10)
+    
+    st.subheader(f"**Топ {num_to_display} постов, отсортированных по {selected_filter}:**")
 
-    query = f"SELECT * FROM Posts WHERE Date BETWEEN '{start_date_str}' AND '{end_date_str}' ORDER BY {selected_filter} DESC LIMIT 10;"
+    query = f"SELECT * FROM Posts WHERE Date BETWEEN '{start_date_str}' AND '{end_date_str}' ORDER BY {selected_filter} DESC LIMIT {num_to_display};"
     data = pd.read_sql_query(query, conn)
     
     if not data.empty:
@@ -217,10 +326,10 @@ def tops():
 
     st.markdown("")
     st.markdown("")
-    st.subheader("Топ комментариев, отсортированных по Лайкам:")
+    st.subheader(f"Топ {num_to_display} комментариев, отсортированных по Лайкам:")
     
     
-    query_comments = f"SELECT ID, Дата, Комментарий, Лайки, Sentiment FROM Comments WHERE Дата BETWEEN '{start_date_str}' AND '{end_date_str}' ORDER BY Лайки DESC LIMIT 10;"
+    query_comments = f"SELECT ID, Дата, Комментарий, Лайки, Sentiment FROM Comments WHERE Дата BETWEEN '{start_date_str}' AND '{end_date_str}' ORDER BY Лайки DESC LIMIT {num_to_display};"
     data_comments = pd.read_sql_query(query_comments, conn)
 
 
@@ -280,3 +389,5 @@ selection = st.sidebar.radio("Выберите страницу", list(pages.key
 
 # Отображение выбранной страницы
 pages[selection]()
+
+
