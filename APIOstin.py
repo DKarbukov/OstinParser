@@ -1,4 +1,4 @@
-from APIVK_private import MY_TOKEN
+#from APIVK_private import MY_TOKEN
 import vk_api
 import datetime
 import pandas as pd
@@ -6,7 +6,7 @@ import sqlite3
 import torch
 from transformers import AutoModelForSequenceClassification
 from transformers import BertTokenizerFast
-login = vk_api.VkApi(token=MY_TOKEN)
+login = vk_api.VkApi(token='vk1.a.VZYtw-TQHAixAZ0Qpx2ozN9P9GIGzexVCXvKA7yN790ohaEaO3O_a3PKhZulDUx9Q_Xl0IUqn97_aVu4Re9nj6osOvUOYDfjGhhtofRqrBteTQsOZH9LcFYEVNWJ9IOv1L3LxBo4_roR7B-a2TWAJjbtJa3e3xCtDUOPHhHvrP3WgW75aoqYA_7cspsSFME-DlyOQpcYkq2hFyiIvVn68Q')
 ostin_id = -20367999
 
 
@@ -137,7 +137,7 @@ def export_to_csv(spisok):
     df = df.transpose()
     df.to_csv('Комменты.csv', index=False)
 
-posts, posts_with_comments = get_group_posts(ostin_id, 400)
+posts, posts_with_comments = get_group_posts(ostin_id, 100)
 comments, users, posts_with_comments_ranked = get_comments(ostin_id, posts_with_comments)
 posts.update(posts_with_comments_ranked)
 export_to_db(posts, 'Posts')
