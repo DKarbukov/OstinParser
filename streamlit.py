@@ -31,12 +31,18 @@ def main():
     selected_table = st.selectbox("Выберите таблицу", list(tables.keys()))
 
     if selected_table == 'Комментарии':
-        
+        # post_filter_value = st.text_input("Введите ID постов (разделите их запятой)", key='post_ids_input')
+        # post_ids = [int(post_id.strip()) for post_id in post_ids_input.split(', ') if post_id.strip()] if post_ids_input else []
+
+        # if post_ids:
+        #     query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN ({', '.join(map(str, post_ids))})"
+        #     filtered_data = pd.read_sql_query(query_comments, conn)
         sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
         country_filter = st.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[])
         city_filter = st.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[])
         sex_filter = st.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[])
-
+        # post_filter_value = st.text_area("Поиск всех комментариев к определенным постам (столбец 'Пост')")
+       
         date_type = st.radio("Выберите тип фильтрации по дате", ["Диапазон дат", "Конкретная дата", 'Все'], index=2)
         if date_type == "Диапазон дат":
             start_date_tab = st.date_input("Выберите начальную дату", datetime.now() - timedelta(days=7), key='start_date_tab')
@@ -60,18 +66,28 @@ def main():
             filtered_data = filtered_data[filtered_data['Country'].isin(country_filter)]
         if sex_filter:
             filtered_data = filtered_data[filtered_data['Sex'].isin(sex_filter)]
-         # Добавление поля ввода числового значения для фильтрации по столбцу ID
-        id_filter_value = st.number_input("Поиск всех комментариев человека по его ID (столбец пользователь)", min_value=0)
-        # Применение фильтрации по столбцу ID
-        filtered_data = filtered_data[filtered_data['Пользователь'] == id_filter_value]
+        
+        # post_filter_value = st.number_input("Введите ID постов (столбец 'Пост') (разделите их запятой)",min_value=0)
+        # if post_filter_value:
+        #     filtered_data = filtered_data[filtered_data['Пост'] == post_filter_value]
+        
+        post_filter_value = st.text_input("Поиск всех комментариев к определенным постам (столбец 'Пост')", help ='Разделите запятой и пробелом')
+        if post_filter_value:
+            # Разделение введенных значений по переносу строки или другому разделителю
+            post_filter_values_list = [x.strip() for x in post_filter_value.split(', ') if x.strip()]
+            # Применение фильтрации по столбцу "Пост" для всех введенных значений
+            filtered_data = filtered_data[filtered_data['Пост'].astype(str).isin(post_filter_values_list)]
+        
+        id_filter_value = st.number_input("Поиск всех комментариев человека по его ID (столбец 'Пользователь')", min_value=0, help ='Разделите запятой и пробелом')
+        if id_filter_value:
+            # Применение фильтрации по столбцу ID
+            filtered_data = filtered_data[filtered_data['Пользователь'] == id_filter_value]
 
         filtered_data['ID'] = filtered_data['ID'].astype(str)
         filtered_data['Пост'] = filtered_data['Пост'].astype(str)
         filtered_data['Пользователь'] = filtered_data['Пользователь'].astype(str)
-        
-        rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]), key='rows')
 
-        filtered_data = filtered_data.head(rows_to_display).reset_index(drop=True)
+        filtered_data = filtered_data.reset_index(drop=True)
         
         st.write(filtered_data)
         
@@ -98,16 +114,27 @@ def main():
     if selected_table == "Посты":
         # Добавляем фильтр по значению столбца "Sentiment"
         sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
-
+        date_type = st.radio("Выберите тип фильтрации по дате", ["Диапазон дат", "Конкретная дата", 'Все'], index=2)
+        if date_type == "Диапазон дат":
+            start_date_tab = st.date_input("Выберите начальную дату", datetime.now() - timedelta(days=7), key='start_date_tab1')
+            end_date_tab = st.date_input("Выберите конечную дату", datetime.now(),key='end_date_tab1')
+            start_date_tab_str = start_date_tab.strftime('%Y/%m/%d')
+            end_date_tab_str = end_date_tab.strftime('%Y/%m/%d')
+            filtered_data = tables[selected_table][(tables[selected_table]['Дата'] >= start_date_tab_str) & (tables[selected_table]['Дата'] <= end_date_tab_str)]
+        elif date_type == "Конкретная дата":
+            selected_date = st.date_input("Выберите конкретную дату", datetime.now())
+            selected_date_str = selected_date.strftime('%Y/%m/%d')
+            filtered_data = tables[selected_table][tables[selected_table]['Дата'] == selected_date_str]
+        else: 
+            filtered_data = tables[selected_table]
         
-        # Добавляем поле для ввода количества строк
-        rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]))
+    
         
         if sentiment_filter:
-            filtered_data = tables[selected_table][tables[selected_table]['Sentiment'].isin(sentiment_filter)].head(rows_to_display)
+            filtered_data = tables[selected_table][tables[selected_table]['Sentiment'].isin(sentiment_filter)]
         else:
             # Если нет фильтра, отображаем все строки
-            filtered_data = tables[selected_table].head(rows_to_display)
+            filtered_data = tables[selected_table]
          # Сбрасываем индекс и устанавливаем начальное значение в 1
         filtered_data = filtered_data.reset_index(drop=True)
         
@@ -125,6 +152,7 @@ def main():
                 file_name=f"{selected_table}.xlsx",
                 key="download_button2",
             )
+        filtered_data['Sentiment'].fillna('Neutral', inplace=True)
         #График, который берет значения столбца "Sentiment" и показывает на круговой диаграмме % появления этих значений 
         if not filtered_data.empty:
             color_map = {'Positive': '#00FF7F', 'Negative': '#E32636'}
@@ -139,7 +167,7 @@ def main():
         city_filter = st.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[],key = 'user_city')
         sex_filter = st.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[],key = 'user_sex')
         
-        rows_to_display = st.number_input("Введите количество строк для отображения", min_value=1, value=len(tables[selected_table]))
+
         
         
         filtered_data = tables[selected_table]
@@ -151,7 +179,7 @@ def main():
         if sex_filter:
             filtered_data = filtered_data[filtered_data['Sex'].isin(sex_filter)]
 
-        filtered_data = filtered_data.head(rows_to_display).reset_index(drop=True)
+        filtered_data = filtered_data.reset_index(drop=True)
         
         filtered_data['ID'] = filtered_data['ID'].astype(str)
         st.write(filtered_data)
@@ -169,34 +197,29 @@ def main():
             )
 
         if not filtered_data.empty:
-            fig_pie = px.pie(filtered_data, names='Sex', title='Пол комментаторов')
-            fig_pie.update_traces(marker=dict(colors=['#FF69B4', '#1f77b4']))
-            st.plotly_chart(fig_pie)
+            # Разделение на две колонки
+            col1, col2 = st.columns(2)
+            
+        
+            with col1:
+                color_map_sex = {'Male': '#FF69B4', 'Female': '#1f77b4'}
+                fig_pie_sex = px.pie(filtered_data, names='Sex', title='Пол комментаторов', color_discrete_map=color_map_sex)
+                fig_pie_sex.update_layout(legend=dict(orientation='h'))
+                st.plotly_chart(fig_pie_sex, use_container_width=True, height=400)
+            # График круговой диаграммы для 'Subscriber'
+            with col2:
+                # Подсчет частоты значений '1' и '0' в столбце 'Subscriber'
+                subscriber_count = filtered_data['Subscriber'].value_counts()
+                subscriber_count.index = subscriber_count.index.map({1: 'Комментаторы, которые подписаны', 0: 'Комментаторы, которые не подписаны'})
+                # Создание круговой диаграммы
+                fig_pie_subscriber = px.pie(subscriber_count, values=subscriber_count.values, names=subscriber_count.index, 
+                                            title='Анализ подписчиков')
+                fig_pie_subscriber.update_traces(textinfo='percent')
+                fig_pie_subscriber.update_layout(legend=dict(orientation='h'))
+                st.plotly_chart(fig_pie_subscriber, width=200, height=400)
         else:
             st.write("Нет данных для отображения.")
-   
 
-        
-        if not filtered_data.empty:
-         # Подсчет частоты значений '1' и '0' в столбце 'Subscriber'
-            subscriber_count = filtered_data['Subscriber'].value_counts()
-            subscriber_count.index = subscriber_count.index.map({1: 'Комментаторы, которые подписаны', 0: 'Комментаторы, которые не подписаны'})
-            # Создание круговой диаграммы
-            fig = px.pie(subscriber_count, values=subscriber_count.values, names=subscriber_count.index, 
-                        title='Анализ подписчиков')
-
-         
-            fig.update_traces(textinfo='percent')
-
-            # Отображение графика
-            st.plotly_chart(fig)
-        else:
-            st.write("Нет данных для отображения.")   
-    
-    
-    conn.close()
-
-# Содержимое страницы "Статистика"
 def statistics():
     
     conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
@@ -228,7 +251,7 @@ def statistics():
     st.subheader('Общий анализ тональности комментариев')
     
     post_ids_input = st.text_input("Введите ID постов (разделите их запятой)", key='post_ids_input')
-    post_ids = [int(post_id.strip()) for post_id in post_ids_input.split(',') if post_id.strip()] if post_ids_input else []
+    post_ids = [int(post_id.strip()) for post_id in post_ids_input.split(', ') if post_id.strip()] if post_ids_input else []
 
     if post_ids:
         query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN ({', '.join(map(str, post_ids))})"
@@ -324,6 +347,16 @@ def tops():
     else:
         st.write("Нет данных для отображения.")
 
+    if st.button("Выгрузить в Excel", key = 'button3'):
+        excel_file = BytesIO()
+        data.to_excel(excel_file, index=False, engine='openpyxl')
+        excel_file.seek(0)
+        st.download_button(
+            label="Скачать Excel файл",
+            data=excel_file,
+            file_name="Топ постов.xlsx",
+            key="download_button3",
+        )
     st.markdown("")
     st.markdown("")
     st.subheader(f"Топ {num_to_display} комментариев, отсортированных по Лайкам:")
@@ -340,48 +373,59 @@ def tops():
         st.write(data_comments.to_html(escape=False), unsafe_allow_html=True)
     else:
         st.write("Нет данных для отображения в таблице Comments.")
+    if st.button("Выгрузить в Excel", key = 'button4'):
+        excel_file = BytesIO()
+        data_comments.to_excel(excel_file, index=False, engine='openpyxl')
+        excel_file.seek(0)
+        st.download_button(
+            label="Скачать Excel файл",
+            data=excel_file,
+            file_name="Топ комментариев.xlsx",
+            key="download_button4",
+        )
+    
     conn.close()
 
-def audience():
-    st.header('Анализ аудитории')
-    conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
-    query_users = "SELECT Sex FROM Users;"
-    data_users = pd.read_sql_query(query_users, conn)
+# def audience():
+    # st.header('Анализ аудитории')
+    # conn = sqlite3.connect('/Users/shishenkovapolina/Documents/Python/test.db')
+    # query_users = "SELECT Sex FROM Users;"
+    # data_users = pd.read_sql_query(query_users, conn)
 
-    if not data_users.empty:
-        fig_pie = px.pie(data_users, names='Sex', title='Пол комментаторов')
-        fig_pie.update_traces(marker=dict(colors=['#FF69B4', '#1f77b4']))
-        st.plotly_chart(fig_pie)
-    else:
-        st.write("Нет данных для отображения.")
+    # if not data_users.empty:
+    #     fig_pie = px.pie(data_users, names='Sex', title='Пол комментаторов')
+    #     fig_pie.update_traces(marker=dict(colors=['#FF69B4', '#1f77b4']))
+    #     st.plotly_chart(fig_pie)
+    # else:
+    #     st.write("Нет данных для отображения.")
    
-    # Загрузка данных из таблицы Users
-    query = "SELECT Subscriber FROM Users;"
-    data = pd.read_sql_query(query, conn)
+    # # Загрузка данных из таблицы Users
+    # query = "SELECT Subscriber FROM Users;"
+    # data = pd.read_sql_query(query, conn)
 
-    # Подсчет частоты значений '1' и '0' в столбце 'Subscriber'
-    subscriber_count = data['Subscriber'].value_counts()
+    # # Подсчет частоты значений '1' и '0' в столбце 'Subscriber'
+    # subscriber_count = data['Subscriber'].value_counts()
 
-    subscriber_count.index = subscriber_count.index.map({1: 'Комментаторы, которые подписаны', 0: 'Комментаторы, которые не подписаны'})
+    # subscriber_count.index = subscriber_count.index.map({1: 'Комментаторы, которые подписаны', 0: 'Комментаторы, которые не подписаны'})
 
-    # Создание круговой диаграммы
-    fig = px.pie(subscriber_count, values=subscriber_count.values, names=subscriber_count.index, 
-                title='Анализ подписчиков')
+    # # Создание круговой диаграммы
+    # fig = px.pie(subscriber_count, values=subscriber_count.values, names=subscriber_count.index, 
+    #             title='Анализ подписчиков')
 
-    # Настройка подписей
-    fig.update_traces(textinfo='percent')
+    # # Настройка подписей
+    # fig.update_traces(textinfo='percent')
 
-    # Отображение диаграммы
-    st.plotly_chart(fig)
+    # # Отображение диаграммы
+    # st.plotly_chart(fig)
 
-    conn.close()
+    # conn.close()
 
 # Опции для навигации между страницами
 pages = {
     "Главная": main,
     "Анализ статистики": statistics,
     'Топ': tops,
-    'Анализ аудитории': audience
+    # 'Анализ аудитории': audience
 }
 
 # Боковая панель для выбора страниц
@@ -389,5 +433,4 @@ selection = st.sidebar.radio("Выберите страницу", list(pages.key
 
 # Отображение выбранной страницы
 pages[selection]()
-
 
