@@ -137,24 +137,103 @@ def export_to_db(spisok, table):
         df = df.reset_index(drop=True)
     db_file = 'test.db'
     conn = sqlite3.connect(db_file)
-    try:
+    # try:
+    if table == 'Comments':
+        cursor = conn.cursor()
+        for index, row in df.iterrows():
+            id = row['ID']
+            post_id = row['Пост']
+            user = row['Пользователь']
+            comments_for_table = row['Комментарий']
+            date_for_table = row['Дата']
+            likes = row['Лайки']
+            sentiment = row['Sentiment']
+            certainty = row['Certainty']
+            answers = row['Ответы']
+            cursor.execute(f"SELECT * FROM {table} WHERE ID = ?", (id,))
+            existing_row = cursor.fetchone()
+            if existing_row and str(answers).isnumeric():
+                # If the post_id exists, update likes and reposts
+                cursor.execute(f"UPDATE {table} SET 'Лайки' = ?, Sentiment = ? WHERE ID = ?",
+                            (likes, sentiment, id))
+            elif not existing_row:   
+                cursor.execute(f"INSERT INTO {table} (ID, 'Пост', 'Пользователь', 'Комментарий', 'Лайки', 'Ответы', 'Дата', Sentiment, Certainty) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )",
+                            (id, post_id, user, comments_for_table, likes, answers, date_for_table, sentiment, certainty))
+    elif table == 'Posts':
+        cursor = conn.cursor()
+        for index, row in df.iterrows():
+            post_id = row['ID']
+            likes = row['Likes']
+            date = row ['Date']
+            views = row['Views']
+            reposts = row['Reposts']
+            comments_for_table = row['Comments']
+            cursor.execute(f"SELECT * FROM {table} WHERE ID = ?", (post_id,))
+            existing_row = cursor.fetchone()
+            if existing_row:
+                cursor.execute(f"UPDATE {table} SET Likes = ?, Views = ?, Reposts = ?, Comments = ? WHERE ID = ?",
+                            (likes, views, reposts, comments_for_table, post_id))
+            else:
+                cursor.execute(f"INSERT INTO {table} (ID, Date, Comments, Likes, Views, Reposts) VALUES ( ?, ?, ?, ?, ?, ? )",
+                            (post_id, date, comments_for_table, likes, views, reposts))
+    elif table == 'Users':
         existing_data = pd.read_sql_query(f'SELECT * FROM {table}', conn)
         existing_data = existing_data.reset_index(drop=True)
         new_data = df[~df['ID'].isin(existing_data['ID'])].dropna()
         new_data.to_sql(table, conn, if_exists='append', index=False)
-        print('file updated')
-    except Exception as ex: 
-        print(f'Table not found, creating new one\n{ex}')
-        df.to_sql(table, conn, if_exists='replace', index= False)
+    print('file updated')
+# except Exception as ex: 
+    # print(f'Table not found, creating temp one\n{ex}')
+    # df.to_sql(table + ' temp', conn, if_exists='replace', index= False)
+    conn.commit()
     conn.close()
+    
+
 def export_to_csv(spisok):
     df = pd.DataFrame(spisok)
     df = df.transpose()
     df.to_csv('Комменты.csv', index=False)
 
-posts, posts_with_comments = get_group_posts(ostin_id, 66)
+
+def add_update():
+    conn = sqlite3.connect('test.db')
+    cursor = conn.cursor()
+    cursor.execute('''SELECT DISTINCT ID FROM Posts''')
+    ids = cursor.fetchall()
+
+    for id in ids:
+        cursor.execute('''SELECT Sentiment, COUNT(*) AS Count
+                        FROM Comments
+                        WHERE ID = ?
+                        GROUP BY Sentiment
+                        ORDER BY Count DESC''', id)
+        results = cursor.fetchall()
+        if results:
+            dominant_sentiments = [result[0] for result in results if result[1] == results[0][1]]
+            dominant_sentiment = '/'.join(dominant_sentiments)
+            cursor.execute('''UPDATE Posts
+                            SET Sentiment = ?
+                            WHERE ID = ?''', (dominant_sentiment, id[0]))
+    conn.commit()
+    query_update_columns = """
+        UPDATE Comments
+        SET City = (SELECT City FROM Users WHERE Users.ID = Comments.Пользователь),
+            Country = (SELECT Country FROM Users WHERE Users.ID = Comments.Пользователь),
+            Sex = (SELECT Sex FROM Users WHERE Users.ID = Comments.Пользователь);
+    """
+    cursor.execute(query_update_columns)
+
+    # Подтвердите изменения в базе данных
+    conn.commit()
+
+    # Закройте соединение
+    conn.close()
+
+
+posts, posts_with_comments = get_group_posts(ostin_id, 250)
 comments, users = get_comments(ostin_id, posts_with_comments)
 # posts.update(posts_with_comments_ranked)
 export_to_db(posts, 'Posts')
 export_to_db(comments, 'Comments')
 export_to_db(users, 'Users')
+add_update()
