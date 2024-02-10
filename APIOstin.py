@@ -1,4 +1,5 @@
 from APIVK_private import MY_TOKEN
+from emosent import get_emoji_sentiment_rank_multiple
 import vk_api
 import datetime
 import pandas as pd
@@ -19,9 +20,9 @@ def get_group_posts(group_id, count):   #Collects posts and separates the ones w
         posts = login.method("wall.get", {"owner_id": group_id, "count": count_lim, "offset": offset})
         offset += count_lim
         for i in posts['items']:
-            all_posts[len(all_posts)+1] = {'ID': i['id'], 'Date': datetime.datetime.utcfromtimestamp(i['date']).strftime('%Y/%m/%d'), 'Rating': 0, 'Comments': i['comments']['count'], 'Likes': i['likes']['count'], 'Views': i['views']['count'], 'Reposts': i['reposts']['count']}
+            all_posts[len(all_posts)+1] = {'ID': i['id'], 'Date': datetime.datetime.utcfromtimestamp(i['date']).strftime('%Y/%m/%d'), 'Comments': i['comments']['count'], 'Likes': i['likes']['count'], 'Views': i['views']['count'], 'Reposts': i['reposts']['count']}
             if i['comments']['count'] > 0:
-                posts_with_comments[len(posts_with_comments)+1] = {'ID': i['id'], 'Date': datetime.datetime.utcfromtimestamp(i['date']).strftime('%Y/%m/%d'), 'Comments': i['comments']['count'], 'Rating': 0, 'Likes': i['likes']['count'], 'Views': i['views']['count'], 'Reposts': i['reposts']['count']}
+                posts_with_comments[len(posts_with_comments)+1] = {'ID': i['id'], 'Date': datetime.datetime.utcfromtimestamp(i['date']).strftime('%Y/%m/%d'), 'Comments': i['comments']['count'], 'Likes': i['likes']['count'], 'Views': i['views']['count'], 'Reposts': i['reposts']['count']}
         print(f'Collected {offset}')
     print('Finished scanning posts')
     return all_posts, posts_with_comments
@@ -73,31 +74,45 @@ def get_comments(group_id, posts):  #Gets comments, gets answers to these commen
                                                                 'Дата': ''}
     for key, comment in clean_comments.items():
         text = comment['Комментарий']
-        sentiment, certainty = predict(text)
+        if get_emoji_sentiment_rank_multiple(text) == []:
+            sentiment, certainty = predict(text)
+
+            # if sentiment == "Positive":
+            #     clean_comments[key]['Rating'] = 1 + clean_comments[key]['Лайки']
+            #     for i in posts:
+            #         if posts[i]['ID'] == clean_comments[key]['Пост']:
+            #             posts[i]['Rating'] = posts[i]['Rating'] + clean_comments[key]['Rating']
+            #             break
+            # elif sentiment == "Negative":
+            #     clean_comments[key]['Rating'] = -1 - clean_comments[key]['Лайки']
+            #     for i in posts:
+            #         if posts[i]['ID'] == clean_comments[key]['Пост']:
+            #             posts[i]['Rating'] = posts[i]['Rating'] + clean_comments[key]['Rating']
+            #             break 
+        else:
+            pos_value, neg_value, neut_value = 0, 0, 0
+            temp = get_emoji_sentiment_rank_multiple(text)
+            for i in temp:
+                pos_value += i['emoji_sentiment_rank']['positive']
+                neg_value += i['emoji_sentiment_rank']['negative']
+                neut_value += i['emoji_sentiment_rank']['neutral']
+            certainty = '-'
+            if pos_value > neg_value and pos_value > neut_value: sentiment = 'Positive'
+            elif neg_value > pos_value and neg_value > neut_value: sentiment = 'Negative'
+            else: sentiment = 'Neutral'
         clean_comments[key]['Sentiment'] = sentiment if sentiment else 'Not analyzed' 
         clean_comments[key]['Certainty'] = certainty if sentiment else 'Not analyzed'
-        if sentiment == "Positive":
-            clean_comments[key]['Rating'] = 1 + clean_comments[key]['Лайки']
-            for i in posts:
-                if posts[i]['ID'] == clean_comments[key]['Пост']:
-                    posts[i]['Rating'] = posts[i]['Rating'] + clean_comments[key]['Rating']
-                    break
-        elif sentiment == "Negative":
-            clean_comments[key]['Rating'] = -1 - clean_comments[key]['Лайки']
-            for i in posts:
-                if posts[i]['ID'] == clean_comments[key]['Пост']:
-                    posts[i]['Rating'] = posts[i]['Rating'] + clean_comments[key]['Rating']
-                    break
-        print(f'Sentiment analysis {key}/{len(clean_comments.items())}')  
+        print(f'Sentiment analysis {key}/{len(clean_comments.items())}') 
     print(f'Starting to retrieve {len(names_ids)} names')
     names = login.method("users.get", {"user_ids": str(names_ids)[1:-1], "fields": "city, country, sex", "name_case": "nom"})
-    sub_status = login.method("groups.isMember", {"group_id": int(str(group_id)[1:]), "user_ids": str(names_ids)[1:-1]})
+    names_no_ostin = [value for value in names_ids if value > 0]
+    sub_status = login.method("groups.isMember", {"group_id": int(str(group_id)[1:]), "user_ids": str(names_no_ostin)[1:-1]})
     SEX = {1: 'Female', 2: 'Male'}
     for i in names:
         clean_names[len(clean_names)+1] = {'ID': i.get('id'), 'First name': i.get('first_name'), 'Last name': i.get('last_name'), 'Subscriber':sub_status[len(clean_names)]["member"], 'City': i.get('city'), 'Country': i.get('country'), 'Sex': SEX[i.get('sex')]}
     print('Generating df')
 
-    return clean_comments, clean_names, posts
+    return clean_comments, clean_names
 
 def predict(text):  #Gets sentiment value
     tokenizer = BertTokenizerFast.from_pretrained('blanchefort/rubert-base-cased-sentiment-rusentiment')
@@ -137,9 +152,9 @@ def export_to_csv(spisok):
     df = df.transpose()
     df.to_csv('Комменты.csv', index=False)
 
-posts, posts_with_comments = get_group_posts(ostin_id, 400)
-comments, users, posts_with_comments_ranked = get_comments(ostin_id, posts_with_comments)
-posts.update(posts_with_comments_ranked)
+posts, posts_with_comments = get_group_posts(ostin_id, 66)
+comments, users = get_comments(ostin_id, posts_with_comments)
+# posts.update(posts_with_comments_ranked)
 export_to_db(posts, 'Posts')
 export_to_db(comments, 'Comments')
 export_to_db(users, 'Users')
