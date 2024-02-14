@@ -1,10 +1,11 @@
 import streamlit as st
+from geopy.geocoders import Nominatim
 import sqlite3
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta   
 from io import BytesIO
-
+geolocator = Nominatim(user_agent="MyApp")
 end_date_default = datetime.now().date()
 start_date_default = end_date_default - timedelta(days=7)
 
@@ -19,17 +20,14 @@ def main():
     st.title("Главная страница")
     st.write("Привет! Это главная страница.")
     conn = sqlite3.connect('test.db')
-   
     
     tables = {
         'Комментарии': pd.read_sql_query("SELECT * FROM Comments WHERE Пользователь != '-20367999';", conn),
         'Посты': pd.read_sql_query("SELECT CAST(ID AS TEXT),* FROM Posts;", conn),
         'Комментаторы': pd.read_sql_query("SELECT * FROM Users;", conn),
     }
-
     # Выбор таблицы для отображения с помощью selectbox
     selected_table = st.selectbox("Выберите таблицу", list(tables.keys()))
-
     if selected_table == 'Комментарии':
         # post_filter_value = st.text_input("Введите ID постов (разделите их запятой)", key='post_ids_input')
         # post_ids = [int(post_id.strip()) for post_id in post_ids_input.split(', ') if post_id.strip()] if post_ids_input else []
@@ -166,9 +164,20 @@ def main():
         country_filter = st.sidebar.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[],key = 'user_country')
         city_filter = st.sidebar.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[],key = 'user_city')
         sex_filter = st.sidebar.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[],key = 'user_sex')
-        
+        if st.button('Показать карту'):
+            st.write('Карта загружается...')
+            cities = tables[selected_table]['City'].unique()
+            cities_coord = {'lat':[], 'lon': []}
+            for i in cities:
+                coord = geolocator.geocode(i)
+                print(i)
+                if coord is not None:
+                    cities_coord['lat'].append(coord.latitude)
+                    cities_coord['lon'].append(coord.longitude)
+            final_coord = pd.DataFrame(cities_coord)
+            st.write('Карта готова!')
+            st.map(final_coord)
 
-        
         
         filtered_data = tables[selected_table]
 
