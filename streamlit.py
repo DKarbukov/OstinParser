@@ -37,10 +37,10 @@ def main():
         # if post_ids:
         #     query_comments = f"SELECT Пост, Sentiment FROM Comments WHERE Пост IN ({', '.join(map(str, post_ids))})"
         #     filtered_data = pd.read_sql_query(query_comments, conn)
-        sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
-        country_filter = st.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[])
-        city_filter = st.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[])
-        sex_filter = st.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[])
+        sentiment_filter = st.sidebar.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
+        country_filter = st.sidebar.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[])
+        city_filter = st.sidebar.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[])
+        sex_filter = st.sidebar.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[])
         # post_filter_value = st.text_area("Поиск всех комментариев к определенным постам (столбец 'Пост')")
        
         # date_type = st.radio("Выберите тип фильтрации по дате", ["Диапазон дат", "Конкретная дата", 'Все'], index=2)
@@ -113,7 +113,7 @@ def main():
 
     if selected_table == "Посты":
         # Добавляем фильтр по значению столбца "Sentiment"
-        sentiment_filter = st.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
+        sentiment_filter = st.sidebar.multiselect("Фильтр по тональности", tables[selected_table]['Sentiment'].unique(), default=[])
         # date_type = st.radio("Выберите тип фильтрации по дате", ["Диапазон дат", "Конкретная дата", 'Все'], index=2)
         # if date_type == "Диапазон дат":
         #     start_date_tab = st.date_input("Выберите начальную дату", datetime.now() - timedelta(days=7), key='start_date_tab1')
@@ -163,9 +163,9 @@ def main():
             st.write("Нет данных для отображения.")
     
     if selected_table == 'Комментаторы':
-        country_filter = st.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[],key = 'user_country')
-        city_filter = st.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[],key = 'user_city')
-        sex_filter = st.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[],key = 'user_sex')
+        country_filter = st.sidebar.multiselect("Фильтр по стране", tables[selected_table]['Country'].unique(), default=[],key = 'user_country')
+        city_filter = st.sidebar.multiselect("Фильтр по городу", tables[selected_table]['City'].unique(), default=[],key = 'user_city')
+        sex_filter = st.sidebar.multiselect("Фильтр по полу", tables[selected_table]['Sex'].unique(), default=[],key = 'user_sex')
         
 
         
