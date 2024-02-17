@@ -167,14 +167,27 @@ def main():
         if st.button('Показать карту'):
             st.write('Карта загружается...')
             cities = tables[selected_table]['City'].unique()
-            cities_coord = {'lat':[], 'lon': []}
+            conn2 = sqlite3.connect('Coordinates.db')
+            exist_cities = pd.read_sql_query("SELECT * FROM Cities;", conn2)
+            only_names = exist_cities['Город'].values.tolist()
+            cities_coord = {'lat':[], 'lon': [], 'Город': []}
+            # print(only_names)
             for i in cities:
-                coord = geolocator.geocode(i)
-                print(i)
-                if coord is not None:
-                    cities_coord['lat'].append(coord.latitude)
-                    cities_coord['lon'].append(coord.longitude)
+                if i not in only_names and i != None:
+                    # print(i)
+                    coord = geolocator.geocode(i)
+                    if coord is not None:
+                        cities_coord['lat'].append(coord.latitude)
+                        cities_coord['lon'].append(coord.longitude)
+                        cities_coord['Город'].append(i)
+                elif i in only_names and i != None:
+                    # print(f'{i} exists')
+                    cities_coord['lat'].append(exist_cities[exist_cities['Город']==i]['lat'].values[0])
+                    cities_coord['lon'].append(exist_cities[exist_cities['Город']==i]['lon'].values[0])
+                    cities_coord['Город'].append(i)
             final_coord = pd.DataFrame(cities_coord)
+            # print(cities_coord)
+            final_coord.to_sql('Cities', conn2, if_exists='append', index=False)
             st.write('Карта готова!')
             st.map(final_coord)
 
